@@ -21,11 +21,6 @@ def load_main_window(instances):
     main_window.columnconfigure(3)
 
     # last played instance launch button
-
-    command = open('command.txt')
-    commandtext = command.readline()  # TEMPORARY PROOF OF CONCEPT
-    command.close()
-
     try:
         lastplayed_button = ttk.Button(main_window, text='Run last played instance: ' + instances[0].instance_name,
                                        command=lambda: instances[0].launch())

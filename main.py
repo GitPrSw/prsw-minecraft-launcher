@@ -32,7 +32,7 @@ for i in instancekeys:
 windows.load_main_window(instances)
 
 export = open('instancedata.json', mode='w')
-exportdict={}
+exportdict = {}
 
 try:
     for i in instances:
