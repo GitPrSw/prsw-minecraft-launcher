@@ -140,5 +140,3 @@ def authenticate():
 
     # Finish
     return account_details
-
-authenticate()
