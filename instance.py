@@ -10,7 +10,7 @@ def last_played_instance():
         if instance_dict[i]['last_played'] > last_playedtime:
             last_played = {i: instance_dict[i]}
             last_playedtime = instance_dict[i]['last_played']
-    if last_played == 0:
+    if last_playedtime == 0:
         return False
     else:
         return last_played
@@ -25,5 +25,6 @@ def load_instances_from_file():
 
 def launch_instance(instance_dict):
     # subprocess.call(f'java {args}', shell=True)
-    # Shall be added with a robust system for what arguments we need and how to get them.
+    # Shall be added with a robust system for what arguments we need and how to get them
+    # including parsing https://launchermeta.mojang.com/mc/game/version_manifest.json
     pass

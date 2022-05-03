@@ -90,15 +90,13 @@ def load_instance_window():
         instancelabels.append(ttk.Label(instance_list_frame,
                                         text=i + '\nLast played: ' + strftime('%a, %d %b %Y %H:%M:%S',
                                                                               gmtime(instance_dict[i]['last_played']))))
-        instancelabels[-1].grid(row=x, column=0)
+        instancelabels[-1].grid(row=x, column=0, sticky=tk.W)
         instancebuttons.append(ttk.Button(instance_list_frame,
                                           command=load_edit_window({i: instance_dict[i]}),
                                           text='Edit'))
-        instancebuttons[-1].grid(row=x, column=1)
+        instancebuttons[-1].grid(row=x, column=1, sticky=tk.E)
+        x += 1
 
 
 def load_edit_window(instance):
     pass
-
-
-load_main_window()

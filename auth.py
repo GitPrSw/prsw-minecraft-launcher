@@ -1,3 +1,4 @@
+import socket
 import tkinter as tk
 from tkinter import ttk
 import requests
@@ -10,19 +11,38 @@ from time import sleep
 
 def authenticate():
     def copylinktoclipboard():
-        session = requests.Session()
-        request = session.get(
-            'https://login.live.com/oauth20_authorize.srf?client_id=000000004C12AE6F&redirect_uri=https://login.live'
-            '.com/oauth20_desktop.srf&scope=service::user.auth.xboxlive.com::MBI_SSL&display=touch&response_type'
-            '=token&locale=en')
-        auth_window.clipboard_clear()
-        auth_window.clipboard_append(request.text.split('urlPost:\'')[1].split("',")[0])
-        copy_button_text.set('Copied!')
+        try:
+            # checking for internet connection
+            if socket.gethostbyname(socket.gethostname()) == '127.0.0.1':
+                raise requests.exceptions.ConnectionError
+
+            # getting the login link
+            session = requests.Session()
+            request = session.get(
+                'https://login.live.com/oauth20_authorize.srf?client_id=000000004C12AE6F&redirect_uri=https://login.live'
+                '.com/oauth20_desktop.srf&scope=service::user.auth.xboxlive.com::MBI_SSL&display=touch&response_type'
+                '=token&locale=en', timeout=1)
+            auth_window.clipboard_clear()
+            auth_window.clipboard_append(request.text.split('urlPost:\'')[1].split("',")[0])
+            copy_button_text.set('Copied!')
+        except requests.exceptions.ConnectionError:
+            # Happens when there's no Internet connection.
+            output_label['foreground'] = 'red'
+            output.set('Error. Please ensure that you are connected to the Internet!')
+        except Exception as e:
+            # To catch all unknown errors.
+            output_label['foreground'] = 'red'
+            output.set('Unknown error: ' + str(e))
 
     def login():
         try:
+            # checking for internet connection
+            if socket.gethostbyname(socket.gethostname()) == '127.0.0.1':
+                raise requests.exceptions.ConnectionError
+
             # Extracting Microsoft token
             redirectlink = auth_window.clipboard_get()
+            paste_button_text.set('Pasted!')
             microsoft_token = redirectlink.split('access_token=')[1].split('&token_type=')[0]
 
             # Logging into Xbox Live (XBL)
@@ -40,17 +60,6 @@ def authenticate():
             xsts_request = requests.post('https://xsts.auth.xboxlive.com/xsts/authorize', headers=xbl_headers,
                                          json=xsts_payload)
             xsts_response = xsts_request.json()
-
-            # Handling possible errors
-            if 'XErr' in xsts_response.keys():
-                output_label['foreground'] = 'red'
-                if xsts_response['XErr'] == 2148916238:
-                    output.set('Your account belongs to someone under 18 and needs to be added to a family.')
-                elif xsts_response['XErr'] == 2148916233:
-                    output.set('This account does not have an Xbox account, you must sign up for one first.')
-                else:
-                    output.set('Unknown error with getting an XSTS token.')
-                return
 
             # Getting the Minecraft bearer token
             mojang_payload = {'identityToken': 'XBL3.0 x=' + xsts_response['DisplayClaims']['xui'][0]['uhs'] + ';' +
@@ -70,7 +79,7 @@ def authenticate():
             accountdict = json.loads(''.join(accountfile.readlines()))
             accountfile.close()
             account_details[uuid_response['id']] = {'name': uuid_response['name'],
-                                                'access_token': mojang_response['access_token']}
+                                                    'access_token': mojang_response['access_token']}
             accountdict[uuid_response['id']] = account_details[uuid_response['id']]
             accountfile = open('accounts.json', mode='w')
             accountfile.write(json.dumps(accountdict))
@@ -78,15 +87,17 @@ def authenticate():
 
             # Finishing up
             output_label['foreground'] = 'green'
-            for i in range(5):
-                output.set('Success! Closing in ' + str(5-i) + 'seconds.')
-                sleep(1)
+            output.set('Success! Closing.')
             auth_window.quit()
 
         except IndexError:
             # Happens when the link syntax is wrong.
             output_label['foreground'] = 'red'
             output.set('Error. Please ensure you have copied the redirected link before pressing the Paste button!')
+        except requests.exceptions.ConnectionError:
+            # Happens when there's no Internet connection.
+            output_label['foreground'] = 'red'
+            output.set('Error. Please ensure that you are connected to the Internet!')
         except Exception as e:
             # To catch all unknown errors.
             output_label['foreground'] = 'red'
@@ -118,15 +129,15 @@ def authenticate():
     top_label.grid(row=0, column=0, sticky=tk.NSEW)
 
     # link copy button
-    copy_button_text = tk.StringVar()
-    copy_button_text.set('Click to copy the link to your clipboard.')
+    copy_button_text = tk.StringVar(value='Click to copy the link to your clipboard.')
     link_copy_button = ttk.Button(content, textvariable=copy_button_text, command=copylinktoclipboard)
     link_copy_button.grid(row=2, column=0, sticky=tk.NSEW)
 
     # link paste button
     link_input_label = ttk.Label(content, text='Copy the link you were redirected to and click here.', wraplength=300)
     link_input_label.grid(row=3, column=0, sticky=tk.NSEW)
-    confirm_button = ttk.Button(content, text='Paste the redirected link.', command=login)
+    paste_button_text = tk.StringVar(value='Paste the redirected link.')
+    confirm_button = ttk.Button(content, textvariable=paste_button_text, command=login)
     confirm_button.grid(row=4, column=0, sticky=tk.NSEW)
 
     # Output label
