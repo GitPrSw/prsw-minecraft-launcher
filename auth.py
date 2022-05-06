@@ -151,3 +151,7 @@ def authenticate():
 
     # Finish
     return account_details
+
+
+if __name__ == '__main__':
+    authenticate()
