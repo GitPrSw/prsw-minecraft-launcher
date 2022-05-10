@@ -3,7 +3,7 @@ import tkinter as tk
 from tkinter import ttk
 import requests
 import json
-from time import sleep
+import time
 
 
 # All online authentication actions are from https://mojang-api-docs.netlify.app/authentication/msa.html
@@ -68,6 +68,7 @@ def authenticate():
             mojang_request = requests.post('https://api.minecraftservices.com/authentication/login_with_xbox',
                                            headers=mojang_headers, json=mojang_payload)
             mojang_response = mojang_request.json()
+            expires_in = mojang_response['expires_in'] + time.time()
 
             # Getting the Minecraft username and UUID
             uuid_headers = {'Authorization': 'Bearer ' + mojang_response['access_token']}
@@ -79,7 +80,8 @@ def authenticate():
             accountdict = json.loads(''.join(accountfile.readlines()))
             accountfile.close()
             account_details[uuid_response['id']] = {'name': uuid_response['name'],
-                                                    'access_token': mojang_response['access_token']}
+                                                    'access_token': mojang_response['access_token'],
+                                                    'expires_in': expires_in}
             accountdict[uuid_response['id']] = account_details[uuid_response['id']]
             accountfile = open('accounts.json', mode='w')
             accountfile.write(json.dumps(accountdict))
@@ -88,7 +90,7 @@ def authenticate():
             # Finishing up
             output_label['foreground'] = 'green'
             output.set('Success! Closing.')
-            auth_window.quit()
+            auth_window.destroy()
 
         except IndexError:
             # Happens when the link syntax is wrong.
