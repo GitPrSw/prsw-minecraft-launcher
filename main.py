@@ -3,11 +3,14 @@ import os
 import windows
 import requests
 
-files = ['instancedata.json', 'accounts.json']
+files = ['instancedata.json', 'accounts.json', 'minecraft_assets']
 for i in files:
     if not os.path.exists(i):
-        with open(i, mode='x') as file:
-            file.close()
+        if '.' in i:
+            with open(i, mode='x') as file:
+                file.close()
+        else:
+            os.makedirs(i)
 
 # Updating version_manifest.json
 version_manifest_update = requests.get('https://launchermeta.mojang.com/mc/game/version_manifest.json')
