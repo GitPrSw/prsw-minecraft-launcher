@@ -154,3 +154,5 @@ java
 logs
 instances
 minecraft_assets
+accounts.json
+instancedata.json

@@ -6,6 +6,8 @@ import tkinter as tk
 import platform
 import zipfile
 import shutil
+import asyncio
+import time
 
 
 def last_played_instance():
@@ -35,108 +37,116 @@ def download_file(url, file_path, timeout):
 
 
 def install_instance(instance_dict):
-    timeout = 30  # seconds
-
-    # Importing version_manifest.json
-    assets_dict = load_from_file('minecraft_assets\\version_manifest.json')
-
-    # Downloading version.json
-    instance_name = list(instance_dict.keys())[0]
-    get_version_json = None
-    for i in assets_dict['versions']:
-        if i['id'] == instance_dict[instance_name]['version']:
-            get_version_json = requests.get(i['url'])
-            break
-    if get_version_json is None:
-        raise ValueError('Invalid Minecraft version!')
-    version_json = get_version_json.json()
-    os.makedirs('instances\\' + instance_name + '\\versions\\' + instance_dict[instance_name]['version'])
-    version_json_file = open('instances\\' + instance_name + '\\versions\\' + instance_dict[instance_name]['version'] +
-                             '\\' + instance_dict[instance_name]['version'] + '.json', mode='w')
-    version_json_file.write(json.dumps(version_json))
-    version_json_file.close()
-
     # Implementing logging system
-    log_message_row = 1
-
-    def log(message, message_row):
-        log_text['state'] = 'normal'
-        log_text.insert(str(message_row) + '.0', message + '\n')
-        message_row += 1
-        log_text['state'] = 'disabled'
-        return message_row
-
+    instance_name = list(instance_dict.keys())[0]
     log_window = tk.Tk()
     log_window.title('Installing instance ' + instance_name)
     log_text = tk.Text(log_window, state='disabled')
     log_text.grid()
 
-    # First log message
-    log_message_row = log('Downloaded ' + instance_dict[instance_name]['version'] + '.json', log_message_row)
+    async def log(message):
+        log_text['state'] = 'normal'
+        log_text.insert(tk.END, time.strftime('[%H:%M:%S] ', time.localtime()) + message + '\n')
+        log_text['state'] = 'disabled'
+        log_window.update()
 
-    # Downloading client.jar
-    download_file(version_json['downloads']['client']['url'], 'instances/' + instance_name + '/versions/' +
-                  instance_dict[instance_name]['version'] + '/' + instance_dict[instance_name]['version'] + '.jar',
-                  timeout)
-    log_message_row = log('Downloaded ' + instance_dict[instance_name]['version'] + '.jar', log_message_row)
+    async def install():
+        timeout = 30  # seconds
 
-    # Downloading Log4J config
-    download_file(version_json['logging']['client']['file']['url'], 'instances/' + instance_name + '/' +
-                  version_json['logging']['client']['file']['id'], timeout)
-    log_message_row = log('Downloaded ' + version_json['logging']['client']['file']['id'], log_message_row)
+        # Importing version_manifest.json
+        assets_dict = load_from_file('minecraft_assets\\version_manifest.json')
 
-    # Downloading assets config
+        # Downloading version.json
+        get_version_json = None
+        for i in assets_dict['versions']:
+            if i['id'] == instance_dict[instance_name]['version']:
+                get_version_json = requests.get(i['url'])
+                break
+        if get_version_json is None:
+            raise ValueError('Invalid Minecraft version!')
+        version_json = get_version_json.json()
+        os.makedirs('instances\\' + instance_name + '\\versions\\' + instance_dict[instance_name]['version'])
+        version_json_file = open('instances\\' + instance_name + '\\versions\\' + instance_dict[instance_name]['version'] +
+                                 '\\' + instance_dict[instance_name]['version'] + '.json', mode='w')
+        version_json_file.write(json.dumps(version_json))
+        version_json_file.close()
 
-    download_file(version_json['assetIndex']['url'], 'instances/' + instance_name +
-                  '/assets/indexes/1.18.json', timeout)
-    log_message_row = log('Downloaded ' + version_json['assetIndex']['url'].split('/')[-1], log_message_row)
+        # First log message
+        await log('Downloaded ' + instance_dict[instance_name]['version'] + '.json')
 
-    # Downloading libraries
-    os_name = platform.platform()
-    if os_name.startswith('Windows'):
-        os_name = 'windows'
-    elif os_name.startswith('Darwin'):
-        os_name = 'osx'
-    elif os_name.startswith('Linux'):
-        os_name = 'linux'
-    libraries = version_json['libraries']
-    os.makedirs('instances/' + instance_name + '/bin/libraries')
-    for library in libraries:
-        artifact_is_allowed = True
-        if 'rules' in library.keys():
-            for i in library['rules']:
-                if 'os' in i:
-                    if (i['action'] == 'disallow' and i['os']['name'] == os_name) or (
-                            i['action'] == 'allow' and i['os']['name'] != os_name):
-                        artifact_is_allowed = False
-        if artifact_is_allowed and 'classifiers' not in library['downloads'].keys():
-            download_file(library['downloads']['artifact']['url'], 'instances/' + instance_name + '/libraries/' +
-                          library['downloads']['artifact']['path'], timeout)
-            log_message_row = log('Downloaded ' + library['downloads']['artifact']['path'].split('/')[-1],
-                                  log_message_row)
-        elif 'classifiers' in library['downloads'].keys():
-            natives = ''
-            if os_name == 'windows':
-                natives = 'natives-windows'
-            elif os_name == 'osx':
-                natives = 'natives-macos'
-            elif os_name == 'linux':
-                natives = 'natives-linux'
-            if natives in library['downloads']['classifiers']:
-                download_file(library['downloads']['classifiers'][natives]['url'], 'instances/' + instance_name +
-                              '/libraries/' + library['downloads']['classifiers'][natives]['path'], timeout)
-                log_message_row = log('Downloaded ' +
-                                      library['downloads']['classifiers'][natives]['path'].split('/')[-1],
-                                      log_message_row)
-                with zipfile.ZipFile('instances/' + instance_name + '/libraries/' +
-                                     library['downloads']['classifiers'][natives]['path']) as downloaded_file:
-                    downloaded_file.extractall('instances/' + instance_name + '/bin/libraries')
-                if 'META-INF' in os.listdir('instances/' + instance_name + '/bin/libraries'):
-                    shutil.rmtree('instances/' + instance_name + '/bin/libraries/META-INF')
-                log_message_row = log('Extracted ' +
-                                      library['downloads']['classifiers'][natives]['path'].split('/')[-1],
-                                      log_message_row)
-    log_message_row = log('Finished!', log_message_row)
+        # Downloading client.jar
+        download_file(version_json['downloads']['client']['url'], 'instances/' + instance_name + '/versions/' +
+                      instance_dict[instance_name]['version'] + '/' + instance_dict[instance_name]['version'] + '.jar',
+                      timeout)
+        await log('Downloaded ' + instance_dict[instance_name]['version'] + '.jar')
+
+        # Downloading Log4J config
+        download_file(version_json['logging']['client']['file']['url'], 'instances/' + instance_name + '/' +
+                      version_json['logging']['client']['file']['id'], timeout)
+        await log('Downloaded ' + version_json['logging']['client']['file']['id'])
+
+        # Downloading assets config
+
+        download_file(version_json['assetIndex']['url'], 'instances/' + instance_name +
+                      '/assets/indexes/1.18.json', timeout)
+        await log('Downloaded ' + version_json['assetIndex']['url'].split('/')[-1])
+
+        # Downloading libraries
+        os_name = platform.platform()
+        if os_name.startswith('Windows'):
+            os_name = 'windows'
+        elif os_name.startswith('Darwin'):
+            os_name = 'osx'
+        elif os_name.startswith('Linux'):
+            os_name = 'linux'
+        libraries = version_json['libraries']
+        os.makedirs('instances/' + instance_name + '/bin/libraries')
+        for library in libraries:
+            artifact_is_allowed = True
+            if 'rules' in library.keys():
+                for i in library['rules']:
+                    if 'os' in i:
+                        if (i['action'] == 'disallow' and i['os']['name'] == os_name) or (
+                                i['action'] == 'allow' and i['os']['name'] != os_name):
+                            artifact_is_allowed = False
+            if artifact_is_allowed and 'classifiers' not in library['downloads'].keys():
+                download_file(library['downloads']['artifact']['url'], 'instances/' + instance_name + '/libraries/' +
+                              library['downloads']['artifact']['path'], timeout)
+                await log('Downloaded ' + library['downloads']['artifact']['path'].split('/')[-1])
+            elif 'classifiers' in library['downloads'].keys():
+                natives = ''
+                if os_name == 'windows':
+                    natives = 'natives-windows'
+                elif os_name == 'osx':
+                    natives = 'natives-macos'
+                elif os_name == 'linux':
+                    natives = 'natives-linux'
+                if natives in library['downloads']['classifiers']:
+                    download_file(library['downloads']['classifiers'][natives]['url'], 'instances/' + instance_name +
+                                  '/libraries/' + library['downloads']['classifiers'][natives]['path'], timeout)
+                    await log('Downloaded ' + library['downloads']['classifiers'][natives]['path'].split('/')[-1])
+                    with zipfile.ZipFile('instances/' + instance_name + '/libraries/' +
+                                         library['downloads']['classifiers'][natives]['path']) as downloaded_file:
+                        downloaded_file.extractall('instances/' + instance_name + '/bin/libraries')
+                    if 'META-INF' in os.listdir('instances/' + instance_name + '/bin/libraries'):
+                        shutil.rmtree('instances/' + instance_name + '/bin/libraries/META-INF')
+                    await log('Extracted ' + library['downloads']['classifiers'][natives]['path'].split('/')[-1])
+
+        # Downloading assets
+        assets_index = load_from_file('instances/' + instance_name + '/assets/indexes/1.18.json')
+        x = 1
+        for i in assets_index['objects'].keys():
+            asset_hash = assets_index['objects'][i]['hash']
+            download_file('https://resources.download.minecraft.net/' + asset_hash[:2] + '/' + asset_hash,
+                          'instances/' + instance_name + '/assets/objects/' + asset_hash[:2] + '/' + asset_hash, timeout)
+            await log(f"Downloaded asset {i.split('/')[-1]} ({x}/{len(assets_index['objects'])})")
+            x += 1
+        await log('Finished!')
+
+    # Handling async
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(install())
+    loop.close()
 
 
 def launch_instance(instance_dict, user_details):

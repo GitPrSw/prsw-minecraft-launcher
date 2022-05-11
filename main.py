@@ -1,6 +1,13 @@
 import windows
 import requests
 import json
+import os
+
+files = ['instancedata.json', 'accounts.json']
+for i in files:
+    if not os.path.exists(i):
+        with open(i, mode='x') as file:
+            file.close()
 
 # Updating version_manifest.json
 version_manifest_update = requests.get('https://launchermeta.mojang.com/mc/game/version_manifest.json')
