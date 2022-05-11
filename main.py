@@ -7,7 +7,8 @@ files = ['instancedata.json', 'accounts.json', 'minecraft_assets']
 for i in files:
     if not os.path.exists(i):
         if '.' in i:
-            with open(i, mode='x') as file:
+            with open(i, mode='w') as file:
+                file.write('{}')
                 file.close()
         else:
             os.makedirs(i)
