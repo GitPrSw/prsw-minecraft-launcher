@@ -88,7 +88,7 @@ def install_instance(instance_dict):
         # Downloading assets config
 
         download_file(version_json['assetIndex']['url'], 'instances/' + instance_name +
-                      '/assets/indexes/1.18.json', timeout)
+                      '/assets/indexes/' + version_json['assetIndex']['id'] + '.json', timeout)
         await log('Downloaded ' + version_json['assetIndex']['url'].split('/')[-1])
 
         # Downloading libraries
@@ -166,6 +166,22 @@ def launch_instance(instance_dict, user_details):
         os_name = 'osx'
     elif os_name.startswith('Linux'):
         os_name = 'linux'
+    if 'arguments' not in arguments_dict and 'minecraftArguments' in arguments_dict:
+        arguments_dict['arguments'] = {}
+        arguments_dict['arguments']['game'] = arguments_dict['minecraftArguments'].split(' ')
+        arguments_dict['arguments']['jvm'] = [{"rules": [{"action": "allow", "os": {"name": "osx"}}],
+                                               "value": ["-XstartOnFirstThread"]},
+                                              {"rules": [{"action": "allow", "os": {"name": "windows"}}],
+                                               "value": "-XX:HeapDumpPath=MojangTricksIntelDriversForPerformance_javaw."
+                                                        "exe_minecraft.exe.heapdump"},
+                                              {"rules": [{"action": "allow", "os": {"name": "windows",
+                                                                                    "version": "^10\\."}}],
+                                               "value": ["-Dos.name=Windows 10", "-Dos.version=10.0"]},
+                                              {"rules": [{"action": "allow", "os": {"arch": "x86"}}],
+                                               "value": "-Xss1M"}, "-Djava.library.path=${natives_directory}",
+                                              "-Dminecraft.launcher.brand=${launcher_name}",
+                                              "-Dminecraft.launcher.version=${launcher_version}",
+                                              "-cp", "${classpath}"]
     for i in arguments_dict['arguments']['jvm']:
         if type(i) == dict:
             if 'rules' in i.keys():
@@ -191,7 +207,7 @@ def launch_instance(instance_dict, user_details):
                             if (j['action'] == 'disallow' and j['os']['name'] == os_name) or (
                                     j['action'] == 'allow' and j['os']['name'] != os_name):
                                 is_allowed = False
-                if is_allowed:
+                if is_allowed and 'artifact' in library['downloads']:
                     files.append('instances/' + instance_name + '/libraries/' +
                                  library['downloads']['artifact']['path'])
             files.append('instances/' + instance_name + '/versions/' +
@@ -212,7 +228,11 @@ def launch_instance(instance_dict, user_details):
     arguments += (arguments_dict['mainClass'] + ' -Xmx' + str(instance_dict[instance_name]['maxmem']) + 'M -Xms' +
                   str(instance_dict[instance_name]['minmem']) + 'M ' +
                   arguments_dict['logging']['client']['argument'].split('=')[0] + '=' + 'instances/' + instance_name +
-                  '/' + arguments_dict['logging']['client']['file']['id'] + ' ')
+                  '/' + arguments_dict['logging']['client']['file']['id'] + ' -XX:+UnlockExperimentalVMOptions '
+                                                                            '-XX:+UseG1GC -XX:G1NewSizePercent=20 '
+                                                                            '-XX:G1ReservePercent=20 '
+                                                                            '-XX:MaxGCPauseMillis=50 '
+                                                                            '-XX:G1HeapRegionSize=32M ')
     for i in arguments_dict['arguments']['game']:
         if type(i) == str:
             if i.startswith('$'):

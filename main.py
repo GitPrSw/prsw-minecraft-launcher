@@ -1,7 +1,7 @@
-import windows
-import requests
 import json
 import os
+import windows
+import requests
 
 files = ['instancedata.json', 'accounts.json']
 for i in files:
@@ -18,4 +18,3 @@ version_manifest_file.close()
 
 # Rendering main window
 windows.load_main_window()
-
