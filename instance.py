@@ -133,7 +133,8 @@ def install_instance(instance_dict):
                     await log('Extracted ' + library['downloads']['classifiers'][natives]['path'].split('/')[-1])
 
         # Downloading assets
-        assets_index = load_from_file('instances/' + instance_name + '/assets/indexes/1.18.json')
+        assets_index = load_from_file('instances/' + instance_name + '/assets/indexes/' +
+                                      version_json['assetIndex']['id'] + '.json')
         x = 1
         for i in assets_index['objects'].keys():
             asset_hash = assets_index['objects'][i]['hash']
@@ -255,8 +256,14 @@ def launch_instance(instance_dict, user_details):
                 arguments += (i + ' msa ')
         else:
             continue
-    print(arguments)
     subprocess.call(instance_dict[instance_name]['java_path'] + ' ' + arguments, shell=True)
+
+    # Saving launch time
+    instances_dict = load_from_file()
+    instance_dict['last_played'] = time.time()
+    instances_dict[instance_name] = instance_dict
+    with open('instancedata.json', mode='w') as instances_file:
+        instances_file.write(json.dumps(instances_dict))
 
 
 if __name__ == '__main__':

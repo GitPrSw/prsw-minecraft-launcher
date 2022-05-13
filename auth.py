@@ -24,7 +24,8 @@ def authenticate():
                 '=token&locale=en', timeout=1)
             auth_window.clipboard_clear()
             auth_window.clipboard_append(request.text.split('urlPost:\'')[1].split("',")[0])
-            copy_button_text.set('Copied!')
+            link_copy_button['text'] = 'Copied!'
+            auth_window.update()
         except requests.exceptions.ConnectionError:
             # Happens when there's no Internet connection.
             output_label['foreground'] = 'red'
@@ -42,7 +43,8 @@ def authenticate():
 
             # Extracting Microsoft token
             redirectlink = auth_window.clipboard_get()
-            paste_button_text.set('Pasted!')
+            confirm_button['text'] = 'Pasted!'
+            auth_window.update()
             microsoft_token = redirectlink.split('access_token=')[1].split('&token_type=')[0]
 
             # Logging into Xbox Live (XBL)
@@ -90,6 +92,8 @@ def authenticate():
             # Finishing up
             output_label['foreground'] = 'green'
             output.set('Success! Closing.')
+            auth_window.update()
+            time.sleep(5)
             auth_window.destroy()
 
         except IndexError:
@@ -131,15 +135,13 @@ def authenticate():
     top_label.grid(row=0, column=0, sticky=tk.NSEW)
 
     # link copy button
-    copy_button_text = tk.StringVar(value='Click to copy the link to your clipboard.')
-    link_copy_button = ttk.Button(content, textvariable=copy_button_text, command=copylinktoclipboard)
+    link_copy_button = ttk.Button(content, text='Click to copy the link to your clipboard.', command=copylinktoclipboard)
     link_copy_button.grid(row=2, column=0, sticky=tk.NSEW)
 
     # link paste button
     link_input_label = ttk.Label(content, text='Copy the link you were redirected to and click here.', wraplength=300)
     link_input_label.grid(row=3, column=0, sticky=tk.NSEW)
-    paste_button_text = tk.StringVar(value='Paste the redirected link.')
-    confirm_button = ttk.Button(content, textvariable=paste_button_text, command=login)
+    confirm_button = ttk.Button(content, text='Paste the redirected link.', command=login)
     confirm_button.grid(row=4, column=0, sticky=tk.NSEW)
 
     # Output label
@@ -149,7 +151,7 @@ def authenticate():
 
     # Start GUI
     account_details = {}
-    auth_window.mainloop()
+    auth_window.update()
 
     # Finish
     return account_details

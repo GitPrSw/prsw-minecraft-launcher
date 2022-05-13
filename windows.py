@@ -1,10 +1,13 @@
+import os.path
 import tkinter as tk
 from tkinter import ttk
 from tkinter import filedialog
+from tkinter import messagebox
 import auth
 import instance
 from time import strftime, gmtime, time
 import json
+import shutil
 
 
 class VerticalScrolledFrame(ttk.Frame):
@@ -103,7 +106,8 @@ def load_main_window():
     else:
         lastplayed_button = ttk.Button(content, text='Last played instance not found.', state='disabled')
 
-    def update_play_button(choice):
+    def update_play_button(event):
+        choice = selected_instance.get()
         lastplayed_button['text'] = 'Run instance: ' + choice
         lastplayed_button['state'] = 'normal'
         for i in instance_data.keys():
@@ -120,7 +124,8 @@ def load_main_window():
     instance_data = instance.load_from_file('instancedata.json')
     instances_list = list(instance_data.keys())
     selected_instance = tk.StringVar(main_window)
-    instance_menu_list = ttk.OptionMenu(content, selected_instance, *instances_list, command=update_play_button)
+    instance_menu_list = ttk.Combobox(content, textvariable=selected_instance, values=instances_list, state='readonly')
+    instance_menu_list.bind('<<ComboboxSelected>>', update_play_button)
     instance_menu_list.grid(column=3, row=2, sticky=tk.NSEW, padx=5, pady=5)
 
     # instance edit menu button
@@ -176,24 +181,24 @@ def load_instance_window():
     instancelabels = []
     instancebuttons = []
     for i in instance_dict.keys():
-        instance_list_frame.rowconfigure(x)
+        instance_list_frame.interior.rowconfigure(x)
         if instance_dict[i]['last_played'] != 0:
-            last_played_text = i + '\nLast played: ' + strftime('%a, %d %b %Y %H:%M:%S', gmtime(instance_dict[i]['last_played']))
+            last_played_text = i + '\nLast played: ' + strftime('%a, %d %b %Y %H:%M:%S',
+                                                                gmtime(instance_dict[i]['last_played']))
         else:
             last_played_text = i + '\nLast played: Never'
         instancelabels.append(ttk.Label(instance_list_frame.interior, text=last_played_text))
-        instancelabels[-1].grid(row=x, column=0, sticky=tk.W)
+        instancelabels[x].grid(row=x, column=0, sticky=tk.W)
         instancebuttons.append(ttk.Button(instance_list_frame.interior,
-                                          command=lambda: load_edit_window({i: instance_dict[i]}),
-                                          text='Edit'))
-        instancebuttons[-1].grid(row=x, column=1, sticky=tk.E)
+                                          command=lambda i=i: load_edit_window({i: instance_dict[i]}), text='Edit'))
+        instancebuttons[x].grid(row=x, column=1, sticky=tk.E)
         x += 1
-    scrollbar_warning_label = ttk.Label(content, text='The scrollbar only works with buttons. This is a known issue.')
+    scrollbar_warning_label = ttk.Label(content, text='The scrollbar only works with buttons.')
     scrollbar_warning_label.grid(row=3, column=0)
 
 
-def load_edit_window(loaded_instance={'': {'minmem': 256, 'maxmem': 2048, 'extra_args': '', 'java_path': 'java', 'version': '1.18.2'}},
-                     isnew=False):
+def load_edit_window(loaded_instance={'': {'minmem': 256, 'maxmem': 2048, 'extra_args': '', 'java_path': 'java',
+                                           'version': '1.18.2'}}, isnew=False):
     def openfile(title, textvariable):
         file_open_window = tk.Tk()
         file_open_window.filename = filedialog.askopenfilename(initialdir='C:\\', title=title)
@@ -247,7 +252,7 @@ def load_edit_window(loaded_instance={'': {'minmem': 256, 'maxmem': 2048, 'extra
     for i in version_dict['versions']:
         if i['type'] == 'release' and bool(releases_variable.get()):
             version_list.append(i['id'])
-    version_select_list = ttk.Combobox(content, textvariable=selected_version, values=version_list)
+    version_select_list = ttk.Combobox(content, textvariable=selected_version, values=version_list, state='readonly')
     version_select_list.grid(row=1, column=2)
 
     def reload_version_list():
@@ -279,6 +284,8 @@ def load_edit_window(loaded_instance={'': {'minmem': 256, 'maxmem': 2048, 'extra
     label_and_entry('Minimum memory:', minmem_field_textvar, 3)
     label_and_entry('Maximum memory:', maxmem_field_textvar, 4)
     label_and_entry('Extra arguments:', extra_args_field_textvar, 5)
+    if not isnew:
+        entries[0]['state'] = 'disabled'
 
     # Setting up file select box
     java_path_textvar = tk.StringVar(instance_edit_window, loaded_instance[instance_name]['java_path'])
@@ -292,6 +299,22 @@ def load_edit_window(loaded_instance={'': {'minmem': 256, 'maxmem': 2048, 'extra
 
     cancel_button = ttk.Button(content, command=instance_edit_window.destroy, text='Cancel')
     cancel_button.grid(row=7, column=0, columnspan=2)
+
+    # Delete button
+    def delete_instance():
+        if messagebox.askokcancel('Confirm', f'Are you sure you want to delete this instance?\n\'{instance_name}\''
+                                             f' will be lost forever! (A long time!)'):
+            instances_dict = instance.load_from_file()
+            del instances_dict[instance_name]
+            with open('instancedata.json', mode='w') as instances_file:
+                instances_file.write(json.dumps(instances_dict))
+            if os.path.exists(f'instances/{instance_name}'):
+                shutil.rmtree(f'instances/{instance_name}')
+
+    if not isnew:
+        delete_button = ttk.Button(content, command=delete_instance, text='Delete')
+        delete_button.grid(row=7, column=1)
+        cancel_button.grid(columnspan=1)
 
     # Save button
     def save_instance(install=False):
